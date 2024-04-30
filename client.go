@@ -9,7 +9,11 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/user"
+	"path/filepath"
 	"time"
+
+	"github.com/jdxcode/netrc"
 )
 
 // maxConcurrency is the maximum number of concurrent requests to make to the
@@ -24,6 +28,19 @@ func ClientFromEnv() (*Client, error) {
 	if c.site = os.Getenv("DD_SITE"); c.site == "" {
 		c.site = "datadoghq.com"
 	}
+
+	usr, err := user.Current()
+	if err == nil {
+		n, err := netrc.Parse(filepath.Join(usr.HomeDir, ".netrc"))
+		if err == nil {
+			c.appKey = n.Machine(c.site).Get("login")
+			c.apiKey = n.Machine(c.site).Get("password")
+			if c.appKey != "" && c.apiKey != "" {
+				return c, nil
+			}
+		}
+	}
+
 	if c.apiKey = os.Getenv("DD_API_KEY"); c.apiKey == "" {
 		return nil, errors.New("DD_API_KEY is not set")
 	}
